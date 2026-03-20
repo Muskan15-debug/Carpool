@@ -1,0 +1,48 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id           String    @id @default(cuid())
+  clerkId      String    @unique
+  email        String    @unique
+  name         String?
+  avatar       String?
+  rating       Float     @default(5.0)
+  isDriver     Boolean   @default(false)  // ← add
+  ridesCreated Ride[]    @relation("DriverRides")
+  bookings     Booking[]
+  createdAt    DateTime  @default(now())
+}
+
+model Ride {
+  id             String    @id @default(cuid())
+  driverId       String
+  driver         User      @relation("DriverRides", fields: [driverId], references: [id])
+  fromAddress    String
+  fromLat        Float
+  fromLng        Float
+  toAddress      String
+  toLat          Float
+  toLng          Float
+  departureTime  DateTime
+  seatsAvailable Int
+  price          Float
+  status         String    @default("ACTIVE")  // ← add
+  bookings       Booking[]
+  createdAt      DateTime  @default(now())
+}
+
+model Booking {
+  id          String   @id @default(cuid())
+  rideId      String
+  passengerId String
+  status      String   @default("PENDING")
+  ride        Ride     @relation(fields: [rideId], references: [id])
+  passenger   User     @relation(fields: [passengerId], references: [id])
+  createdAt   DateTime @default(now())  // ← add
+}
