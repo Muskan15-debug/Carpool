@@ -1,48 +1,76 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
-  provider = "postgresql"
+  provider   = "postgresql"
+  extensions = [postgis]
 }
 
 model User {
-  id           String    @id @default(cuid())
-  clerkId      String    @unique
-  email        String    @unique
-  name         String?
-  avatar       String?
-  rating       Float     @default(5.0)
-  isDriver     Boolean   @default(false)  // ← add
-  ridesCreated Ride[]    @relation("DriverRides")
-  bookings     Booking[]
-  createdAt    DateTime  @default(now())
+  id               String    @id @default(cuid())
+  clerkId          String    @unique
+  email            String    @unique
+  name             String?
+  avatar           String?
+  rating           Float     @default(5.0)
+  isDriver         Boolean   @default(false)
+  
+  // Trust & Safety Pillar
+  kycLevel         Int       @default(0) // 0: Basic, 1: Verified (Digilocker/Selfie), 2: Driver Verified (DL/RC)
+  gender           String?
+  emergencyContact String?
+
+  ridesCreated     Ride[]    @relation("DriverRides")
+  bookings         Booking[]
+  createdAt        DateTime  @default(now())
 }
 
 model Ride {
   id             String    @id @default(cuid())
   driverId       String
   driver         User      @relation("DriverRides", fields: [driverId], references: [id])
+  
   fromAddress    String
   fromLat        Float
   fromLng        Float
   toAddress      String
   toLat          Float
   toLng          Float
+  
+  // PostGIS Geography for GIST indexing
+  originGeom     Unsupported("geography(Point, 4326)")?
+  destGeom       Unsupported("geography(Point, 4326)")?
+  
+  // Route Overlap (Pillar 1)
+  polyline       String?   // Encoded polyline or coordinate array string
+  routeGeom      Unsupported("geometry(LineString, 4326)")?
+
   departureTime  DateTime
   seatsAvailable Int
   price          Float
-  status         String    @default("ACTIVE")  // ← add
+  
+  status         String    @default("DRAFT") // DRAFT, ACTIVE, FULLY_BOOKED, IN_PROGRESS, COMPLETED, CANCELLED, DISPUTED
+  
+  // UX Features (Pillar 5)
+  meetupLat      Float?
+  meetupLng      Float?
+  isRecurring    Boolean   @default(false)
+  recurringDays  String[]  // Array of days e.g. ["MON", "TUE"]
+
   bookings       Booking[]
   createdAt      DateTime  @default(now())
+
+  @@index([status, departureTime])
 }
 
 model Booking {
   id          String   @id @default(cuid())
   rideId      String
   passengerId String
-  status      String   @default("PENDING")
+  status      String   @default("PENDING") // PENDING, CONFIRMED, CANCELLED
   ride        Ride     @relation(fields: [rideId], references: [id])
   passenger   User     @relation(fields: [passengerId], references: [id])
-  createdAt   DateTime @default(now())  // ← add
+  createdAt   DateTime @default(now())
 }
