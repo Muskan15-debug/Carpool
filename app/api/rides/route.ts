@@ -25,12 +25,21 @@ export async function GET(req: Request) {
     }
   }
 
-  // Fallback: Return all active rides with available seats
+  const fromCity = searchParams.get('fromCity')
+
+  // Fallback: Return all active rides with available seats (with optional city filter)
+  const whereClause: any = { 
+    status: 'ACTIVE',
+    seatsAvailable: { gt: 0 },
+    departureTime: { gt: new Date() }
+  }
+
+  if (fromCity) {
+    whereClause.fromAddress = { contains: fromCity, mode: 'insensitive' }
+  }
+
   const rides = await prisma.ride.findMany({
-    where: { 
-      status: 'ACTIVE',
-      seatsAvailable: { gt: 0 }
-    },
+    where: whereClause,
     include: { driver: true },
     orderBy: { departureTime: 'asc' }
   })

@@ -24,6 +24,13 @@ export default function RidesPage() {
   const [rides, setRides] = useState<Ride[]>([])
   const [filteredRides, setFilteredRides] = useState<Ride[]>([])
   const [loading, setLoading] = useState(true)
+  // Input states
+  const [fromLocationInput, setFromLocationInput] = useState<{ address: string, lat: number, lng: number } | null>(null)
+  const [toLocationInput, setToLocationInput] = useState<{ address: string, lat: number, lng: number } | null>(null)
+  const [maxPriceInput, setMaxPriceInput] = useState<number | ''>('')
+  const [sortByInput, setSortByInput] = useState<'time' | 'price' | 'rating'>('time')
+
+  // Applied states
   const [fromLocation, setFromLocation] = useState<{ address: string, lat: number, lng: number } | null>(null)
   const [toLocation, setToLocation] = useState<{ address: string, lat: number, lng: number } | null>(null)
   const [maxPrice, setMaxPrice] = useState<number | ''>('')
@@ -34,6 +41,9 @@ export default function RidesPage() {
     let url = '/api/rides'
     if (fromLocation && toLocation) {
       url += `?originLat=${fromLocation.lat}&originLng=${fromLocation.lng}&destLat=${toLocation.lat}&destLng=${toLocation.lng}`
+    } else if (fromLocation) {
+      const cityStr = fromLocation.address.split(',')[0].trim()
+      url += `?fromCity=${encodeURIComponent(cityStr)}`
     }
     
     fetch(url)
@@ -45,6 +55,25 @@ export default function RidesPage() {
       })
       .catch(() => setLoading(false))
   }, [fromLocation, toLocation])
+
+  // Apply filters function
+  const applyFilters = () => {
+    setFromLocation(fromLocationInput)
+    setToLocation(toLocationInput)
+    setMaxPrice(maxPriceInput)
+    setSortBy(sortByInput)
+  }
+
+  const clearFilters = () => {
+    setFromLocationInput(null)
+    setToLocationInput(null)
+    setMaxPriceInput('')
+    setSortByInput('time')
+    setFromLocation(null)
+    setToLocation(null)
+    setMaxPrice('')
+    setSortBy('time')
+  }
 
   useEffect(() => {
     let result = [...rides]
@@ -95,35 +124,54 @@ export default function RidesPage() {
           <div className="flex-1 relative">
             <PlacesInput 
               placeholder="Pickup Location..." 
-              onSelect={setFromLocation} 
+              onSelect={setFromLocationInput} 
               enableCurrentLocation={true}
             />
           </div>
           <div className="flex-1 relative">
             <PlacesInput 
               placeholder="Dropoff Location..." 
-              onSelect={setToLocation} 
+              onSelect={setToLocationInput} 
             />
           </div>
           <div>
             <input
               type="number"
               placeholder="Max price ₹"
-              value={maxPrice}
-              onChange={(e) => setMaxPrice(e.target.value ? parseInt(e.target.value) : '')}
+              value={maxPriceInput}
+              onChange={(e) => setMaxPriceInput(e.target.value ? parseInt(e.target.value) : '')}
               className="w-full sm:w-32 px-4 py-2.5 border border-gray-200 rounded-xl text-sm"
+              onKeyDown={(e) => e.key === 'Enter' && applyFilters()}
             />
           </div>
           <div>
             <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as any)}
+              value={sortByInput}
+              onChange={(e) => setSortByInput(e.target.value as any)}
               className="w-full sm:w-auto px-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-white"
             >
               <option value="time">Sort by Time</option>
               <option value="price">Sort by Price</option>
               <option value="rating">Sort by Rating</option>
             </select>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={applyFilters}
+              className="bg-primary text-white font-medium px-4 py-2.5 rounded-xl hover:bg-primary-dark transition-colors text-sm shrink-0"
+            >
+              Apply Filters
+            </button>
+            {(maxPriceInput !== '' || sortByInput !== 'time' || fromLocationInput !== null || toLocationInput !== null) && (
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="text-xs text-primary hover:text-primary-dark font-medium px-2 py-2"
+              >
+                Clear
+              </button>
+            )}
           </div>
         </div>
 

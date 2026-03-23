@@ -55,7 +55,9 @@ export async function findMatchingRides(params: MatchScoreParams) {
       ST_Distance(r."routeGeom", ST_SetSRID(ST_MakePoint(${dLng}::double precision, ${dLat}::double precision), 4326)) AS dest_dist
     FROM "Ride" r
     JOIN "User" u ON r."driverId" = u.id
-    WHERE r.status = 'ACTIVE' AND r."seatsAvailable" > 0
+    WHERE r.status = 'ACTIVE' 
+      AND r."seatsAvailable" > 0
+      AND r."departureTime" > NOW()
       ${requireFemaleDriver ? Prisma.sql`AND u.gender = 'FEMALE'` : Prisma.empty}
       AND ST_DWithin(r."routeGeom"::geography, ST_SetSRID(ST_MakePoint(${oLng}::double precision, ${oLat}::double precision), 4326)::geography, 2000)
       AND ST_DWithin(r."routeGeom"::geography, ST_SetSRID(ST_MakePoint(${dLng}::double precision, ${dLat}::double precision), 4326)::geography, 2000)

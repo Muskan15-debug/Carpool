@@ -1,27 +1,44 @@
 import { prisma } from '@/lib/prisma'
-import { auth } from '@clerk/nextjs/server'
+import { auth, currentUser } from '@clerk/nextjs/server'
 import { redirect } from 'next/navigation'
 import Navbar from '@/components/Navbar'
 import Link from 'next/link'
+import DashboardCityRides from '@/components/DashboardCityRides'
 
 export default async function DashboardPage() {
   const { userId } = await auth()
   if (!userId) redirect('/sign-in')
 
+  const clerkUser = await currentUser()
   let user = await prisma.user.findUnique({ where: { clerkId: userId } })
+  
+  const clerkName = clerkUser && clerkUser.firstName 
+    ? `${clerkUser.firstName} ${clerkUser.lastName || ''}`.trim() 
+    : "Unknown User"
+
+  const clerkEmail = clerkUser?.emailAddresses[0]?.emailAddress || "unknown@example.com"
+
   if (!user) {
-    const { createClerkClient } = await import('@clerk/backend')
-    const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY })
-    const clerkUser = await clerk.users.getUser(userId)
     user = await prisma.user.create({
       data: {
         clerkId: userId,
-        email: clerkUser.emailAddresses[0]?.emailAddress || "unknown@example.com",
-        name: clerkUser.firstName ? `${clerkUser.firstName} ${clerkUser.lastName || ''}`.trim() : "Unknown User",
-        avatar: clerkUser.imageUrl,
+        email: clerkEmail,
+        name: clerkName,
+        avatar: clerkUser?.imageUrl,
       }
     })
+  } else if (clerkName !== "Unknown User" && user.name !== clerkName) {
+    // Sync name if it was updated in Clerk
+    user = await prisma.user.update({
+      where: { clerkId: userId },
+      data: { name: clerkName, avatar: clerkUser?.imageUrl || user.avatar }
+    })
   }
+
+  // Derive display name (fallback to email prefix if name is truly unknown)
+  const displayName = user.name && user.name !== 'Unknown User' 
+    ? user.name.split(' ')[0] 
+    : user.email.split('@')[0];
 
   // Fetch user stats
   const [ridesCreated, totalBookings, activeRides, upcomingBookings] = await Promise.all([
@@ -66,11 +83,13 @@ export default async function DashboardPage() {
               <img src={user.avatar} className="w-14 h-14 rounded-full ring-2 ring-white/30 ring-offset-2 ring-offset-primary" alt={user.name || 'User'} />
             ) : (
               <div className="w-14 h-14 rounded-full bg-white/20 flex items-center justify-center text-2xl font-bold text-white">
-                {user.name?.charAt(0) || '?'}
+                {user.name && user.name !== 'Unknown User' ? user.name.charAt(0).toUpperCase() : '👋'}
               </div>
             )}
             <div>
-              <h1 className="text-2xl font-bold text-white">Welcome back, {user.name?.split(' ')[0] || 'there'}! 👋</h1>
+              <h1 className="text-2xl font-bold text-white">
+                Welcome back, {displayName}! 👋
+              </h1>
               <p className="text-white/70 text-sm">Here&apos;s your ride sharing activity</p>
             </div>
           </div>
@@ -183,6 +202,9 @@ export default async function DashboardPage() {
             )}
           </div>
         </div>
+
+        {/* City Rides Filtering */}
+        <DashboardCityRides initialCity={user.city || null} />
 
         {/* Quick Actions */}
         <div className="mt-8 grid grid-cols-1 sm:grid-cols-3 gap-4 animate-fade-in-up delay-400">
