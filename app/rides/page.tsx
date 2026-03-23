@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import Navbar from '@/components/Navbar'
 import Footer from '@/components/Footer'
 import Link from 'next/link'
+import PlacesInput from '@/components/PlacesInput'
 
 interface Ride {
   id: string
@@ -23,12 +24,19 @@ export default function RidesPage() {
   const [rides, setRides] = useState<Ride[]>([])
   const [filteredRides, setFilteredRides] = useState<Ride[]>([])
   const [loading, setLoading] = useState(true)
-  const [search, setSearch] = useState('')
+  const [fromLocation, setFromLocation] = useState<{ address: string, lat: number, lng: number } | null>(null)
+  const [toLocation, setToLocation] = useState<{ address: string, lat: number, lng: number } | null>(null)
   const [maxPrice, setMaxPrice] = useState<number | ''>('')
   const [sortBy, setSortBy] = useState<'time' | 'price' | 'rating'>('time')
 
   useEffect(() => {
-    fetch('/api/rides')
+    setLoading(true)
+    let url = '/api/rides'
+    if (fromLocation && toLocation) {
+      url += `?originLat=${fromLocation.lat}&originLng=${fromLocation.lng}&destLat=${toLocation.lat}&destLng=${toLocation.lng}`
+    }
+    
+    fetch(url)
       .then(res => res.json())
       .then(data => {
         setRides(data)
@@ -36,19 +44,10 @@ export default function RidesPage() {
         setLoading(false)
       })
       .catch(() => setLoading(false))
-  }, [])
+  }, [fromLocation, toLocation])
 
   useEffect(() => {
     let result = [...rides]
-    
-    // Search filter
-    if (search.trim()) {
-      const s = search.toLowerCase()
-      result = result.filter(r => 
-        r.fromAddress.toLowerCase().includes(s) || 
-        r.toAddress.toLowerCase().includes(s)
-      )
-    }
 
     // Price filter
     if (maxPrice !== '') {
@@ -65,7 +64,7 @@ export default function RidesPage() {
     }
 
     setFilteredRides(result)
-  }, [search, maxPrice, sortBy, rides])
+  }, [maxPrice, sortBy, rides])
 
   return (
     <main className="min-h-screen bg-gray-50">
@@ -94,13 +93,16 @@ export default function RidesPage() {
         {/* Filters */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-8 flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
           <div className="flex-1 relative">
-            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-            <input
-              type="text"
-              placeholder="Search by location..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm"
+            <PlacesInput 
+              placeholder="Pickup Location..." 
+              onSelect={setFromLocation} 
+              enableCurrentLocation={true}
+            />
+          </div>
+          <div className="flex-1 relative">
+            <PlacesInput 
+              placeholder="Dropoff Location..." 
+              onSelect={setToLocation} 
             />
           </div>
           <div>

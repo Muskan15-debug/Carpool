@@ -43,7 +43,12 @@ export async function POST(req: Request) {
   // create booking + decrease seats in one transaction
   const [booking] = await prisma.$transaction([
     prisma.booking.create({
-      data: { rideId, passengerId: user.id, status: 'PENDING' }
+      data: { 
+        rideId, 
+        passengerId: user.id, 
+        status: 'PENDING',
+        otp: String(Math.floor(1000 + Math.random() * 9000))
+      }
     }),
     prisma.ride.update({
       where: { id: rideId },

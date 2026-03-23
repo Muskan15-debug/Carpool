@@ -3,6 +3,12 @@ import { auth } from '@clerk/nextjs/server'
 import Navbar from '@/components/Navbar'
 import BookButton from '@/components/BookButton'
 import { notFound } from 'next/navigation'
+import Map from '@/components/Map'
+import BookingActions from '@/components/BookingActions'
+import VerifyOTP from '@/components/VerifyOTP'
+import StartRideButton from '@/components/StartRideButton'
+import EndRideButton from '@/components/EndRideButton'
+import RideMapWithTracking from '@/components/RideMapWithTracking'
 
 export default async function RidePage({ params }: { params: Promise<{ id: string }> }) {
   const { userId } = await auth()
@@ -91,6 +97,26 @@ export default async function RidePage({ params }: { params: Promise<{ id: strin
           </div>
         </div>
 
+        {/* Route Map Card */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-6 animate-fade-in-up">
+          {ride.status === 'IN_PROGRESS' ? (
+            <RideMapWithTracking
+              rideId={ride.id}
+              isDriver={isDriver}
+              from={{ address: ride.fromAddress, lat: ride.fromLat, lng: ride.fromLng }}
+              to={{ address: ride.toAddress, lat: ride.toLat, lng: ride.toLng }}
+              encodedPolyline={ride.polyline}
+            />
+          ) : (
+            <Map 
+              from={{ address: ride.fromAddress, lat: ride.fromLat, lng: ride.fromLng }}
+              to={{ address: ride.toAddress, lat: ride.toLat, lng: ride.toLng }}
+              encodedPolyline={ride.polyline}
+              height="250px"
+            />
+          )}
+        </div>
+
         {/* Driver Card */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6 animate-fade-in-up delay-100">
           <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">Driver</h2>
@@ -148,10 +174,20 @@ export default async function RidePage({ params }: { params: Promise<{ id: strin
                   )}
                   <span className="text-sm font-medium text-gray-700">{b.passenger.name}</span>
                   <span className={`text-xs px-2 py-0.5 rounded-full ${
-                    b.status === 'CONFIRMED' ? 'badge-confirmed' : 'badge-pending'
+                    b.status === 'CONFIRMED' ? 'badge-confirmed' : 
+                    b.status === 'BOARDED' ? 'bg-indigo-100 text-indigo-700 px-3' :
+                    'badge-pending'
                   }`}>
                     {b.status}
                   </span>
+                  
+                  {!isDriver && b.passengerId === user?.id && b.otp && (
+                    <span className="ml-auto px-3 py-1 bg-gray-900 text-white rounded-lg text-xs font-mono tracking-widest font-bold shadow-sm">
+                      OTP: {b.otp}
+                    </span>
+                  )}
+                  {isDriver && b.status === 'PENDING' && <BookingActions bookingId={b.id} status={b.status} />}
+                  {isDriver && b.status === 'CONFIRMED' && <VerifyOTP bookingId={b.id} />}
                 </div>
               ))}
             </div>
@@ -170,10 +206,26 @@ export default async function RidePage({ params }: { params: Promise<{ id: strin
           )}
 
           {isDriver && (
-            <div className="text-center py-4 px-6 rounded-2xl bg-primary-lighter">
-              <p className="text-primary font-medium">🚗 This is your ride</p>
-              <p className="text-xs text-primary/60 mt-1">You&apos;re the driver for this trip</p>
-            </div>
+            <>
+              <div className="text-center py-4 px-6 rounded-2xl bg-primary-lighter mb-4">
+                <p className="text-primary font-medium">🚗 This is your ride</p>
+                <p className="text-xs text-primary/60 mt-1">You&apos;re the driver for this trip</p>
+              </div>
+
+              {ride.status === 'ACTIVE' && confirmedPassengers.length > 0 && (
+                <StartRideButton rideId={ride.id} />
+              )}
+              
+              {ride.status === 'IN_PROGRESS' && (
+                <EndRideButton rideId={ride.id} />
+              )}
+
+              {ride.status === 'COMPLETED' && (
+                <div className="text-center py-4 px-6 rounded-2xl bg-gray-100 text-gray-500 font-semibold mt-4">
+                  🏁 This trip is complete.
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>

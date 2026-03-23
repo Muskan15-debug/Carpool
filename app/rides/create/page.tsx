@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import PlacesInput from '@/components/PlacesInput'
 import Navbar from '@/components/Navbar'
+import Map from '@/components/Map'
 
 interface PlaceResult {
   address: string
@@ -75,6 +76,10 @@ export default function CreateRidePage() {
             </div>
           </div>
 
+          <div className="mb-8">
+            <Map from={from} to={to} height="200px" />
+          </div>
+
           <div className="flex flex-col gap-5">
             {/* From */}
             <div>
@@ -84,7 +89,7 @@ export default function CreateRidePage() {
                   Pickup Location
                 </span>
               </label>
-              <PlacesInput placeholder="e.g. Connaught Place, Delhi" onSelect={setFrom} />
+              <PlacesInput placeholder="e.g. Connaught Place, Delhi" onSelect={setFrom} enableCurrentLocation={true} />
             </div>
 
             {/* To */}

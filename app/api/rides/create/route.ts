@@ -25,8 +25,21 @@ export async function POST(req: Request) {
     const { userId } = await auth();
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const user = await prisma.user.findUnique({ where: { clerkId: userId } });
-    if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
+    let user = await prisma.user.findUnique({ where: { clerkId: userId } });
+    if (!user) {
+      // Sync user on the fly if missing from Database (e.g. wiped dev db)
+      const { createClerkClient } = await import('@clerk/backend');
+      const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
+      const clerkUser = await clerk.users.getUser(userId);
+      user = await prisma.user.create({
+        data: {
+          clerkId: userId,
+          email: clerkUser.emailAddresses[0]?.emailAddress || "unknown@example.com",
+          name: clerkUser.firstName ? `${clerkUser.firstName} ${clerkUser.lastName || ''}`.trim() : "Unknown User",
+          avatar: clerkUser.imageUrl,
+        }
+      });
+    }
 
     const body = await req.json();
     const { fromAddress, fromLat, fromLng, toAddress, toLat, toLng, departureTime, seatsAvailable, price, isRecurring, recurringDays } = body;

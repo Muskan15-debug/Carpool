@@ -8,8 +8,20 @@ export default async function DashboardPage() {
   const { userId } = await auth()
   if (!userId) redirect('/sign-in')
 
-  const user = await prisma.user.findUnique({ where: { clerkId: userId } })
-  if (!user) redirect('/sign-in')
+  let user = await prisma.user.findUnique({ where: { clerkId: userId } })
+  if (!user) {
+    const { createClerkClient } = await import('@clerk/backend')
+    const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY })
+    const clerkUser = await clerk.users.getUser(userId)
+    user = await prisma.user.create({
+      data: {
+        clerkId: userId,
+        email: clerkUser.emailAddresses[0]?.emailAddress || "unknown@example.com",
+        name: clerkUser.firstName ? `${clerkUser.firstName} ${clerkUser.lastName || ''}`.trim() : "Unknown User",
+        avatar: clerkUser.imageUrl,
+      }
+    })
+  }
 
   // Fetch user stats
   const [ridesCreated, totalBookings, activeRides, upcomingBookings] = await Promise.all([

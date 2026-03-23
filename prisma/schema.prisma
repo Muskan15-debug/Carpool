@@ -69,8 +69,16 @@ model Booking {
   id          String   @id @default(cuid())
   rideId      String
   passengerId String
-  status      String   @default("PENDING") // PENDING, CONFIRMED, CANCELLED
-  ride        Ride     @relation(fields: [rideId], references: [id])
-  passenger   User     @relation(fields: [passengerId], references: [id])
+  status            String   @default("PENDING") // PENDING, CONFIRMED, BOARDED, CANCELLED
+  otp               String?
+  
+  // Payment Integration
+  razorpayOrderId   String?  @unique
+  razorpayPaymentId String?  @unique
+  razorpaySignature String?
+  paymentStatus     String   @default("PENDING") // PENDING, COMPLETED, FAILED, REFUNDED
+
+  ride              Ride     @relation(fields: [rideId], references: [id])
+  passenger         User     @relation(fields: [passengerId], references: [id])
   createdAt   DateTime @default(now())
 }
