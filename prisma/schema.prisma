@@ -16,10 +16,27 @@ model User {
   avatar           String?
   city             String?
   rating           Float     @default(5.0)
+  
+  // Role: PASSENGER or DRIVER
+  role             String    @default("PASSENGER")
+  
+  // Driver-specific fields
   isDriver         Boolean   @default(false)
+  vehicleType      String?   // AUTO, MINI_CAB, SEDAN, SUV
+  vehiclePlate     String?
+  vehicleModel     String?
+  isOnline         Boolean   @default(false)
+  currentLat       Float?
+  currentLng       Float?
   
   // Trust & Safety Pillar
-  kycLevel         Int       @default(0) // 0: Basic, 1: Verified (Digilocker/Selfie), 2: Driver Verified (DL/RC)
+  kycLevel         Int       @default(0)
+  kycStatus        String    @default("UNVERIFIED") // UNVERIFIED, PENDING, VERIFIED, REJECTED
+  kycDlUrl         String?
+  kycRcUrl         String?
+  kycInsuranceUrl  String?
+  kycLivenessUrl   String?
+  kycVehicleUrls   String[]
   gender           String?
   emergencyContact String?
 
@@ -45,20 +62,27 @@ model Ride {
   destGeom       Unsupported("geography(Point, 4326)")?
   
   // Route Overlap (Pillar 1)
-  polyline       String?   // Encoded polyline or coordinate array string
+  polyline       String?
   routeGeom      Unsupported("geometry(LineString, 4326)")?
 
   departureTime  DateTime
   seatsAvailable Int
   price          Float
   
-  status         String    @default("DRAFT") // DRAFT, ACTIVE, FULLY_BOOKED, IN_PROGRESS, COMPLETED, CANCELLED, DISPUTED
+  // Vehicle & Fare
+  vehicleType    String    @default("MINI_CAB") // AUTO, MINI_CAB, SEDAN, SUV
+  baseFare       Float     @default(0)
+  farePerKm      Float     @default(15)
+  distanceKm     Float     @default(0)
+  estimatedMinutes Int     @default(0)
   
-  // UX Features (Pillar 5)
+  status         String    @default("SEARCHING") // SEARCHING, DRIVER_ASSIGNED, IN_PROGRESS, COMPLETED, CANCELLED
+  
+  // UX Features
   meetupLat      Float?
   meetupLng      Float?
   isRecurring    Boolean   @default(false)
-  recurringDays  String[]  // Array of days e.g. ["MON", "TUE"]
+  recurringDays  String[]
 
   bookings       Booking[]
   createdAt      DateTime  @default(now())
@@ -73,11 +97,17 @@ model Booking {
   status            String   @default("PENDING") // PENDING, CONFIRMED, BOARDED, CANCELLED
   otp               String?
   
+  // Match & Fare
+  matchType         String   @default("EXACT") // EXACT, DEST_ON_ROUTE, SOURCE_ON_ROUTE
+  seats             Int      @default(1)
+  poolDiscount      Float    @default(0)
+  finalFare         Float    @default(0)
+  
   // Payment Integration
   razorpayOrderId   String?  @unique
   razorpayPaymentId String?  @unique
   razorpaySignature String?
-  paymentStatus     String   @default("PENDING") // PENDING, COMPLETED, FAILED, REFUNDED
+  paymentStatus     String   @default("PENDING")
 
   ride              Ride     @relation(fields: [rideId], references: [id])
   passenger         User     @relation(fields: [passengerId], references: [id])

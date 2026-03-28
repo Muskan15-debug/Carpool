@@ -1,14 +1,41 @@
 'use client'
 import { SignInButton, UserButton, useUser } from '@clerk/nextjs'
 import Link from 'next/link'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 export default function Navbar() {
   const { isSignedIn } = useUser()
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [userRole, setUserRole] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (isSignedIn) {
+      fetch('/api/user/me')
+        .then(res => res.json())
+        .then(data => {
+          if (data.role) setUserRole(data.role)
+        })
+        .catch(() => {})
+    }
+  }, [isSignedIn])
+
+  const passengerLinks = [
+    { href: '/', label: 'Home' },
+    { href: '/book', label: 'Book a Ride' },
+    { href: '/bookings', label: 'My Trips' },
+  ]
+
+  const driverLinks = [
+    { href: '/', label: 'Home' },
+    { href: '/driver', label: 'Dashboard' },
+    { href: '/bookings', label: 'My Rides' },
+  ]
+
+  const navLinks = userRole === 'DRIVER' ? driverLinks : passengerLinks
 
   return (
-    <nav className="sticky top-0 z-50 bg-white/80 backdrop-blur-lg border-b border-gray-100 shadow-sm">
+    <nav className="sticky top-0 z-50 backdrop-blur-lg border-b shadow-sm"
+      style={{ background: 'rgba(15, 15, 15, 0.85)', borderColor: 'var(--border)' }}>
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
@@ -17,35 +44,28 @@ export default function Navbar() {
               style={{ background: 'var(--primary-gradient)' }}>
               R
             </div>
-            <span className="text-xl font-bold text-gray-900 group-hover:text-primary transition-colors">
+            <span className="text-xl font-bold text-white group-hover:text-primary transition-colors">
               RideShare
             </span>
           </Link>
 
           {/* Desktop Nav */}
           <div className="hidden md:flex items-center gap-8">
-            <Link href="/" className="text-sm font-medium text-gray-600 hover:text-primary transition-colors">
-              Home
-            </Link>
-            <Link href="/rides" className="text-sm font-medium text-gray-600 hover:text-primary transition-colors">
-              Find Rides
-            </Link>
-            {isSignedIn && (
-              <>
-                <Link href="/rides/create" className="text-sm font-medium text-gray-600 hover:text-primary transition-colors">
-                  Offer a Ride
+            {isSignedIn ? (
+              navLinks.map(link => (
+                <Link key={link.href} href={link.href}
+                  className="text-sm font-medium text-gray-400 hover:text-primary transition-colors">
+                  {link.label}
                 </Link>
-                <Link href="/bookings" className="text-sm font-medium text-gray-600 hover:text-primary transition-colors">
-                  My Bookings
-                </Link>
-                <Link href="/dashboard" className="text-sm font-medium text-gray-600 hover:text-primary transition-colors">
-                  Dashboard
-                </Link>
-              </>
+              ))
+            ) : (
+              <Link href="/" className="text-sm font-medium text-gray-400 hover:text-primary transition-colors">
+                Home
+              </Link>
             )}
           </div>
 
-          {/* Auth + CTA */}
+          {/* Auth */}
           <div className="hidden md:flex items-center gap-3">
             {!isSignedIn ? (
               <SignInButton mode="modal">
@@ -54,48 +74,53 @@ export default function Navbar() {
                 </button>
               </SignInButton>
             ) : (
-              <UserButton />
+              <div className="flex items-center gap-3">
+                {userRole && userRole !== 'UNASSIGNED' && (
+                  <Link href="/select-role" title="Switch Role" className="text-xs font-medium px-2.5 py-1 rounded-full hover:opacity-80 transition-opacity flex items-center gap-1.5"
+                    style={{ background: 'var(--primary-lighter)', color: 'var(--primary)' }}>
+                    {userRole === 'DRIVER' ? '🚗 Driver' : '🧳 Passenger'}
+                    <span className="opacity-60 text-[10px] uppercase tracking-wide">(Switch)</span>
+                  </Link>
+                )}
+                <UserButton />
+              </div>
             )}
           </div>
 
           {/* Mobile Hamburger */}
           <button
-            className="md:hidden p-2 rounded-lg hover:bg-gray-100 transition-colors"
+            className="md:hidden p-2 rounded-lg hover:bg-[var(--surface-light)] transition-colors"
             onClick={() => setMobileOpen(!mobileOpen)}
             aria-label="Toggle menu"
           >
             <div className="w-5 h-5 flex flex-col justify-center gap-1">
-              <span className={`block h-0.5 bg-gray-700 transition-all duration-300 ${mobileOpen ? 'rotate-45 translate-y-1.5' : ''}`} />
-              <span className={`block h-0.5 bg-gray-700 transition-all duration-300 ${mobileOpen ? 'opacity-0' : ''}`} />
-              <span className={`block h-0.5 bg-gray-700 transition-all duration-300 ${mobileOpen ? '-rotate-45 -translate-y-1.5' : ''}`} />
+              <span className={`block h-0.5 bg-gray-400 transition-all duration-300 ${mobileOpen ? 'rotate-45 translate-y-1.5' : ''}`} />
+              <span className={`block h-0.5 bg-gray-400 transition-all duration-300 ${mobileOpen ? 'opacity-0' : ''}`} />
+              <span className={`block h-0.5 bg-gray-400 transition-all duration-300 ${mobileOpen ? '-rotate-45 -translate-y-1.5' : ''}`} />
             </div>
           </button>
         </div>
 
         {/* Mobile Menu */}
         {mobileOpen && (
-          <div className="md:hidden border-t border-gray-100 py-4 animate-fade-in">
+          <div className="md:hidden border-t py-4 animate-fade-in" style={{ borderColor: 'var(--border)' }}>
             <div className="flex flex-col gap-3">
-              <Link href="/" className="px-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-primary-lighter hover:text-primary transition-colors" onClick={() => setMobileOpen(false)}>
-                Home
-              </Link>
-              <Link href="/rides" className="px-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-primary-lighter hover:text-primary transition-colors" onClick={() => setMobileOpen(false)}>
-                Find Rides
-              </Link>
-              {isSignedIn && (
-                <>
-                  <Link href="/rides/create" className="px-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-primary-lighter hover:text-primary transition-colors" onClick={() => setMobileOpen(false)}>
-                    Offer a Ride
+              {isSignedIn ? (
+                navLinks.map(link => (
+                  <Link key={link.href} href={link.href}
+                    className="px-3 py-2 rounded-lg text-sm font-medium text-gray-400 hover:bg-[var(--surface-light)] hover:text-primary transition-colors"
+                    onClick={() => setMobileOpen(false)}>
+                    {link.label}
                   </Link>
-                  <Link href="/bookings" className="px-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-primary-lighter hover:text-primary transition-colors" onClick={() => setMobileOpen(false)}>
-                    My Bookings
-                  </Link>
-                  <Link href="/dashboard" className="px-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-primary-lighter hover:text-primary transition-colors" onClick={() => setMobileOpen(false)}>
-                    Dashboard
-                  </Link>
-                </>
+                ))
+              ) : (
+                <Link href="/"
+                  className="px-3 py-2 rounded-lg text-sm font-medium text-gray-400 hover:bg-[var(--surface-light)] hover:text-primary transition-colors"
+                  onClick={() => setMobileOpen(false)}>
+                  Home
+                </Link>
               )}
-              <div className="px-3 pt-2 border-t border-gray-100 mt-2">
+              <div className="px-3 pt-2 border-t mt-2" style={{ borderColor: 'var(--border)' }}>
                 {!isSignedIn ? (
                   <SignInButton mode="modal">
                     <button className="btn-primary w-full text-sm py-2.5">
@@ -103,7 +128,16 @@ export default function Navbar() {
                     </button>
                   </SignInButton>
                 ) : (
-                  <UserButton />
+                  <div className="flex items-center gap-3">
+                    {userRole && userRole !== 'UNASSIGNED' && (
+                      <Link href="/select-role" title="Switch Role" className="text-xs font-medium px-2.5 py-1 rounded-full hover:opacity-80 transition-opacity flex items-center gap-1.5"
+                        style={{ background: 'var(--primary-lighter)', color: 'var(--primary)' }}>
+                        {userRole === 'DRIVER' ? '🚗 Driver' : '🧳 Passenger'}
+                        <span className="opacity-60 text-[10px] uppercase tracking-wide">(Switch)</span>
+                      </Link>
+                    )}
+                    <UserButton />
+                  </div>
                 )}
               </div>
             </div>

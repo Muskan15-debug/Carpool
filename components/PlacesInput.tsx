@@ -113,7 +113,8 @@ export default function PlacesInput({ placeholder, onSelect, enableCurrentLocati
           onChange={(e) => handleSearch(e.target.value)}
           onFocus={() => { if (results.length > 0) setIsOpen(true) }}
           placeholder={placeholder}
-          className={`w-full pl-10 ${enableCurrentLocation ? 'pr-12' : 'pr-4'} border border-gray-200 p-3 rounded-xl text-sm bg-white`}
+          className={`w-full pl-10 ${enableCurrentLocation ? 'pr-12' : 'pr-4'} p-3 rounded-xl text-sm text-white`}
+          style={{ background: 'var(--surface-light)', border: '1px solid var(--border)' }}
         />
         
         {enableCurrentLocation && (
@@ -140,12 +141,16 @@ export default function PlacesInput({ placeholder, onSelect, enableCurrentLocati
       </div>
       
       {isOpen && results.length > 0 && (
-        <ul className="absolute z-50 w-full bg-white mt-1.5 border border-gray-200 rounded-xl shadow-xl max-h-60 overflow-y-auto">
+        <ul className="absolute z-50 w-full mt-1.5 rounded-xl shadow-xl max-h-60 overflow-y-auto"
+          style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
           {results.map((feature) => (
             <li 
               key={feature.id}
               onClick={() => handleSelect(feature)}
-              className="px-4 py-3 hover:bg-primary-lighter cursor-pointer border-b border-gray-50 last:border-0 text-sm text-gray-700 flex items-start gap-2.5 transition-colors"
+              className="px-4 py-3 cursor-pointer last:border-0 text-sm text-gray-300 flex items-start gap-2.5 transition-colors hover:text-white"
+              style={{ borderBottom: '1px solid var(--border)' }}
+              onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-light)')}
+              onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
             >
               <svg className="w-4 h-4 text-primary mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
