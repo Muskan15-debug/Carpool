@@ -1,8 +1,18 @@
 import Link from 'next/link'
 import Navbar from '@/components/Navbar'
 import Footer from '@/components/Footer'
+import { auth } from '@clerk/nextjs/server'
+import { prisma } from '@/lib/prisma'
 
-export default function Home() {
+export default async function Home() {
+  const { userId } = await auth()
+  let role = 'UNASSIGNED'
+  
+  if (userId) {
+    const user = await prisma.user.findUnique({ where: { clerkId: userId } })
+    if (user) role = user.role
+  }
+
   return (
     <main className="min-h-screen" style={{ background: 'var(--background)' }}>
       <Navbar />
@@ -31,14 +41,18 @@ export default function Home() {
                 Your driver is just a tap away.
               </p>
               <div className="flex flex-wrap gap-4">
-                <Link href="/book" className="btn-primary inline-flex items-center gap-2 text-base">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                  Book a Ride
-                </Link>
-                <Link href="/select-role" className="btn-outline inline-flex items-center gap-2 text-base">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-                  Drive & Earn
-                </Link>
+                {role !== 'DRIVER' && (
+                  <Link href="/book" className="btn-primary inline-flex items-center gap-2 text-base">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                    Book a Ride
+                  </Link>
+                )}
+                {role !== 'PASSENGER' && (
+                  <Link href="/select-role" className="btn-outline inline-flex items-center gap-2 text-base">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                    Drive & Earn
+                  </Link>
+                )}
               </div>
             </div>
 
@@ -158,12 +172,16 @@ export default function Home() {
                 Join thousands of riders saving money and reducing their carbon footprint every day.
               </p>
               <div className="flex flex-wrap justify-center gap-4">
-                <Link href="/sign-up" className="bg-white text-primary font-semibold px-8 py-3 rounded-xl hover:shadow-lg hover:-translate-y-1 transition-all">
-                  Get Started Free
-                </Link>
-                <Link href="/book" className="border-2 border-white/30 text-white font-semibold px-8 py-3 rounded-xl hover:bg-white/10 transition-all">
-                  Book a Ride
-                </Link>
+                {!userId && (
+                  <Link href="/sign-up" className="bg-white text-primary font-semibold px-8 py-3 rounded-xl hover:shadow-lg hover:-translate-y-1 transition-all">
+                    Get Started Free
+                  </Link>
+                )}
+                {role !== 'DRIVER' && (
+                  <Link href="/book" className="border-2 border-white/30 text-white font-semibold px-8 py-3 rounded-xl hover:bg-white/10 transition-all">
+                    Book a Ride
+                  </Link>
+                )}
               </div>
             </div>
           </div>

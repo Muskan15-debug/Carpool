@@ -35,7 +35,7 @@ export default function DriverVerificationPage() {
     // Mock API call to change status
     try {
       await fetch('/api/driver/submit-kyc', { method: 'POST' })
-      setKycStatus('PENDING')
+      setKycStatus('VERIFIED')
     } catch {
       alert("Failed to submit documents")
     }

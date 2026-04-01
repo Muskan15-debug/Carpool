@@ -196,9 +196,6 @@ export default function DashboardCityRides({ initialCity }: { initialCity: strin
         <div className="text-center py-10 bg-gray-50 rounded-xl border border-dashed border-gray-200">
           <div className="text-3xl mb-2">📭</div>
           <p className="text-gray-500 text-sm mb-1">No rides found in {appliedCity} matching your filters</p>
-          <Link href="/rides/create" className="text-primary text-sm font-medium hover:underline mt-2 inline-block">
-            Offer the first ride →
-          </Link>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

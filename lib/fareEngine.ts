@@ -47,7 +47,7 @@ export async function getRouteInfo(
     return { distanceKm: Math.round(d * 10) / 10, durationMin: estimateTime(d), polyline: null }
   }
 
-  const url = `https://api.mapbox.com/directions/v5/mapbox/driving/${fromLng},${fromLat};${toLng},${toLat}?access_token=${mapboxKey}`
+  const url = `https://api.mapbox.com/directions/v5/mapbox/driving/${fromLng},${fromLat};${toLng},${toLat}?overview=full&geometries=polyline&access_token=${mapboxKey}`
   const res = await fetch(url)
   const data = await res.json()
   

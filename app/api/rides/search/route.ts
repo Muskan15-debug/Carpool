@@ -5,11 +5,12 @@ import { calculateSoloFare, calculatePoolFare, getDiscountPercent, VEHICLE_RATES
 
 // POST /api/rides/search - Passenger searches for pool matches
 export async function POST(req: Request) {
+  let body: any = {}
   try {
     const { userId } = await auth()
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-    const body = await req.json()
+    body = await req.json()
     const { originLat, originLng, destLat, destLng, vehicleType, distanceKm } = body
 
     if (!originLat || !originLng || !destLat || !destLng) {
@@ -19,6 +20,11 @@ export async function POST(req: Request) {
     const vType = vehicleType || 'MINI_CAB'
     const distance = distanceKm || 10
     const soloFare = calculateSoloFare(vType, distance)
+
+    const user = await prisma.user.findUnique({ where: { clerkId: userId } })
+    if (user?.role === 'DRIVER') {
+      return NextResponse.json({ error: "Drivers cannot search for rides." }, { status: 403 })
+    }
 
     // Find rides with matching routes using PostGIS
     const oLng = parseFloat(originLng)
@@ -37,10 +43,10 @@ export async function POST(req: Request) {
         r."fromAddress",
         r."toAddress",
         r."distanceKm",
-        u.name as "driverName",
-        u.rating as "driverRating",
-        u."kycLevel",
-        u.avatar as "driverAvatar",
+        p.name as "passengerName",
+        p.rating as "passengerRating",
+        p."kycLevel" as "passengerKycLevel",
+        p.avatar as "passengerAvatar",
         ST_Distance(r."routeGeom", ST_SetSRID(ST_MakePoint(${oLng}::double precision, ${oLat}::double precision), 4326)) AS origin_dist,
         ST_Distance(r."routeGeom", ST_SetSRID(ST_MakePoint(${dLng}::double precision, ${dLat}::double precision), 4326)) AS dest_dist,
         ST_Distance(
@@ -52,11 +58,16 @@ export async function POST(req: Request) {
           ST_SetSRID(ST_MakePoint(${dLng}::double precision, ${dLat}::double precision), 4326)::geography
         ) AS to_dest_dist
       FROM "Ride" r
-      JOIN "User" u ON r."driverId" = u.id
+      JOIN (
+        SELECT DISTINCT ON ("rideId") "rideId", "passengerId"
+        FROM "Booking"
+        ORDER BY "rideId", "createdAt" ASC
+      ) first_booking ON first_booking."rideId" = r.id
+      JOIN "User" p ON first_booking."passengerId" = p.id
       WHERE r.status IN ('ACTIVE', 'DRIVER_ASSIGNED', 'SEARCHING', 'IN_PROGRESS')
         AND r."routeGeom" IS NOT NULL
         AND r."seatsAvailable" > 0
-        AND r."departureTime" > NOW()
+        AND r."departureTime" > NOW() - INTERVAL '2 hours'
         AND r."vehicleType" = ${vType}
         AND ST_DWithin(r."routeGeom"::geography, ST_SetSRID(ST_MakePoint(${oLng}::double precision, ${oLat}::double precision), 4326)::geography, 3000)
         AND ST_DWithin(r."routeGeom"::geography, ST_SetSRID(ST_MakePoint(${dLng}::double precision, ${dLat}::double precision), 4326)::geography, 3000)
@@ -89,10 +100,10 @@ export async function POST(req: Request) {
       return {
         rideId: row.id,
         driverId: row.driverId,
-        driverName: row.driverName,
-        driverRating: Number(row.driverRating),
-        driverAvatar: row.driverAvatar,
-        isVerified: Number(row.kycLevel) >= 1,
+        passengerName: row.passengerName,
+        passengerRating: Number(row.passengerRating),
+        passengerAvatar: row.passengerAvatar,
+        isVerified: Number(row.passengerKycLevel) >= 1,
         fromAddress: row.fromAddress,
         toAddress: row.toAddress,
         matchType,
@@ -112,7 +123,8 @@ export async function POST(req: Request) {
       rate: VEHICLE_RATES[vType],
     })
   } catch (err: any) {
-    console.error("Ride search error:", err)
+    console.error("Ride search error:", err?.message || err)
+    console.error("Search params:", { originLat: body?.originLat, originLng: body?.originLng, destLat: body?.destLat, destLng: body?.destLng, vehicleType: body?.vehicleType })
     // Return empty results on PostGIS errors (e.g. no routeGeom data)
     return NextResponse.json({
       matches: [],
@@ -120,6 +132,7 @@ export async function POST(req: Request) {
       vehicleType: 'MINI_CAB',
       distanceKm: 0,
       rate: VEHICLE_RATES['MINI_CAB'],
+      error: err?.message || 'Search failed',
     })
   }
 }

@@ -75,13 +75,6 @@ export default function Navbar() {
               </SignInButton>
             ) : (
               <div className="flex items-center gap-3">
-                {userRole && userRole !== 'UNASSIGNED' && (
-                  <Link href="/select-role" title="Switch Role" className="text-xs font-medium px-2.5 py-1 rounded-full hover:opacity-80 transition-opacity flex items-center gap-1.5"
-                    style={{ background: 'var(--primary-lighter)', color: 'var(--primary)' }}>
-                    {userRole === 'DRIVER' ? '🚗 Driver' : '🧳 Passenger'}
-                    <span className="opacity-60 text-[10px] uppercase tracking-wide">(Switch)</span>
-                  </Link>
-                )}
                 <UserButton />
               </div>
             )}
@@ -129,13 +122,6 @@ export default function Navbar() {
                   </SignInButton>
                 ) : (
                   <div className="flex items-center gap-3">
-                    {userRole && userRole !== 'UNASSIGNED' && (
-                      <Link href="/select-role" title="Switch Role" className="text-xs font-medium px-2.5 py-1 rounded-full hover:opacity-80 transition-opacity flex items-center gap-1.5"
-                        style={{ background: 'var(--primary-lighter)', color: 'var(--primary)' }}>
-                        {userRole === 'DRIVER' ? '🚗 Driver' : '🧳 Passenger'}
-                        <span className="opacity-60 text-[10px] uppercase tracking-wide">(Switch)</span>
-                      </Link>
-                    )}
                     <UserButton />
                   </div>
                 )}

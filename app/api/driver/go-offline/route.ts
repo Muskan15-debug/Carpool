@@ -7,6 +7,10 @@ export async function POST() {
     const { userId } = await auth()
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
+    const user = await prisma.user.findUnique({ where: { clerkId: userId } })
+    if (user?.role === 'PASSENGER') return NextResponse.json({ error: "Passengers cannot access driver endpoints." }, { status: 403 })
+
+
     await prisma.user.update({
       where: { clerkId: userId },
       data: { isOnline: false, currentLat: null, currentLng: null },

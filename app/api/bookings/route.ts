@@ -22,26 +22,56 @@ export async function GET() {
 
 // POST - book a ride
 export async function POST(req: Request) {
-  const { userId } = await auth()
-  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  try {
+    const { userId } = await auth()
+    if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const body = await req.json()
-  const { rideId, solo, matchType, finalFare, poolDiscount, route } = body
+    const body = await req.json()
+  const { rideId, solo, matchType, finalFare, poolDiscount, route, newPool } = body
   const user = await prisma.user.findUnique({ where: { clerkId: userId } })
   if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 })
 
-  if (solo && route) {
-    // 1. Find an available driver online with the correct vehicle type
-    const driver = await prisma.user.findFirst({
-      where: {
-        role: 'DRIVER',
-        isOnline: true,
-        vehicleType: route.vehicleType,
-      }
-    })
+  if (user.role === 'DRIVER') {
+    return NextResponse.json({ error: 'Drivers cannot book rides.' }, { status: 403 })
+  }
 
-    if (!driver) {
-      return NextResponse.json({ error: 'No drivers available right now. Please try again later.' }, { status: 404 })
+  if ((solo || newPool) && route) {
+    // 1. Find nearest available driver online with the correct vehicle type using Georadius
+    const drivers = await prisma.$queryRaw<any[]>`
+      SELECT id 
+      FROM "User" 
+      WHERE "role" = 'DRIVER' 
+        AND "isOnline" = true 
+        AND "vehicleType" = ${route.vehicleType}
+        AND "currentLat" IS NOT NULL 
+        AND "currentLng" IS NOT NULL
+      ORDER BY ST_Distance(
+        ST_SetSRID(ST_MakePoint("currentLng"::double precision, "currentLat"::double precision), 4326)::geography,
+        ST_SetSRID(ST_MakePoint(${route.fromLng}::double precision, ${route.fromLat}::double precision), 4326)::geography
+      ) ASC
+      LIMIT 1;
+    `;
+
+    let driverId;
+    if (!drivers || drivers.length === 0) {
+      // Fallback: pick ANY online driver with correct vehicle type if location is missing/far
+      const fallbackDriver = await prisma.user.findFirst({
+        where: { role: 'DRIVER', isOnline: true, vehicleType: route.vehicleType }
+      });
+      if (!fallbackDriver) {
+        // Ultimate fallback: pick ANY online driver regardless of vehicle type (good for testing)
+        const anyOnline = await prisma.user.findFirst({
+          where: { role: 'DRIVER', isOnline: true }
+        });
+        if (!anyOnline) {
+          return NextResponse.json({ error: 'No drivers available right now. Please go online as a driver first.' }, { status: 404 });
+        }
+        driverId = anyOnline.id;
+      } else {
+        driverId = fallbackDriver.id;
+      }
+    } else {
+      driverId = drivers[0].id;
     }
 
     // 2. Create the Ride for that driver
@@ -59,7 +89,7 @@ export async function POST(req: Request) {
         otp: String(Math.floor(1000 + Math.random() * 9000)),
         ride: {
           create: {
-            driver: { connect: { id: driver.id } },
+            driver: { connect: { id: driverId } },
             fromAddress: route.fromAddress,
             fromLat: route.fromLat,
             fromLng: route.fromLng,
@@ -88,7 +118,18 @@ export async function POST(req: Request) {
           polyline = ${routeInfo.polyline},
           "originGeom" = ST_SetSRID(ST_MakePoint(${route.fromLng}::double precision, ${route.fromLat}::double precision), 4326)::geography,
           "destGeom" = ST_SetSRID(ST_MakePoint(${route.toLng}::double precision, ${route.toLat}::double precision), 4326)::geography,
-          "routeGeom" = ST_LineFromEncodedPolyline(${routeInfo.polyline}, 5)
+          "routeGeom" = ST_SetSRID(ST_LineFromEncodedPolyline(${routeInfo.polyline}, 5), 4326)
+        WHERE id = ${booking.rideId}
+      `
+    } else {
+      // Fallback: straight-line geometry so the ride is still searchable
+      const fallbackWKT = `LINESTRING(${route.fromLng} ${route.fromLat}, ${route.toLng} ${route.toLat})`
+      await prisma.$executeRaw`
+        UPDATE "Ride"
+        SET
+          "originGeom" = ST_SetSRID(ST_MakePoint(${route.fromLng}::double precision, ${route.fromLat}::double precision), 4326)::geography,
+          "destGeom" = ST_SetSRID(ST_MakePoint(${route.toLng}::double precision, ${route.toLat}::double precision), 4326)::geography,
+          "routeGeom" = ST_GeomFromText(${fallbackWKT}, 4326)
         WHERE id = ${booking.rideId}
       `
     }
@@ -126,5 +167,9 @@ export async function POST(req: Request) {
     })
   ])
 
-  return NextResponse.json(booking)
+    return NextResponse.json(booking)
+  } catch (error: any) {
+    console.error('SERVER ACTION ERROR (POST /api/bookings):', error)
+    return NextResponse.json({ error: error.message || 'An unexpected error occurred during booking.' }, { status: 500 })
+  }
 }
